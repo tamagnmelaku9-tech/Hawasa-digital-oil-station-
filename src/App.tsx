@@ -84,6 +84,8 @@ export default function App() {
   // Private isolated driver logs
   const [privateSmsLogs, setPrivateSmsLogs] = useState<SMSAlert[]>([]);
   const [privateLoading, setPrivateLoading] = useState<boolean>(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // Live Toast simulated phone notifications
   const [incomingSms, setIncomingSms] = useState<SMSAlert | null>(null);
@@ -179,20 +181,16 @@ export default function App() {
 
   // Update localized Active Token whenever tokens array updates from SSE
   useEffect(() => {
-    if (activeToken) {
+    if (activeToken && tokens.length > 0) {
       const serverToken = tokens.find((t) => t.id === activeToken.id);
       if (serverToken) {
         if (JSON.stringify(serverToken) !== JSON.stringify(activeToken)) {
           setActiveToken(serverToken);
           localStorage.setItem("hawassa_fuel_active_token", JSON.stringify(serverToken));
         }
-      } else {
-        // Token was removed/cleared on server (highly unlikely but safeguard)
-        setActiveToken(null);
-        localStorage.removeItem("hawassa_fuel_active_token");
       }
     }
-  }, [tokens, activeToken]);
+  }, [tokens, activeToken?.id]);
 
   // Load Attendant Profile if token exists in localStorage on startup
   useEffect(() => {
@@ -244,6 +242,9 @@ export default function App() {
             setActiveToken(data.token);
             localStorage.setItem("hawassa_fuel_active_token", JSON.stringify(data.token));
           }
+        } else if (res.status === 404) {
+          setActiveToken(null);
+          localStorage.removeItem("hawassa_fuel_active_token");
         }
       } catch (err) {
         console.error("Error fetching private driver queue data:", err);
@@ -266,6 +267,51 @@ export default function App() {
       setVehicleType(currentActiveStation.currentAllowedVehicle as VehicleType);
     }
   }, [selectedStationId, stations]);
+
+  // Auto-lock Attendant Panel 2 seconds after leaving the tab or minimizing the page
+  useEffect(() => {
+    if (!isAttendantLoggedIn) return;
+
+    let timeoutId: any = null;
+
+    const lockSession = () => {
+      handleAttendantLogout();
+    };
+
+    // Check if user is active on the attendant page/tab
+    const isOutOfPage = currentTab !== "attendant";
+
+    if (isOutOfPage) {
+      timeoutId = setTimeout(() => {
+        lockSession();
+      }, 2000);
+    }
+
+    // Also handle visibility change (switching browser tabs or locking screen)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        if (!timeoutId) {
+          timeoutId = setTimeout(() => {
+            lockSession();
+          }, 2000);
+        }
+      } else {
+        if (currentTab === "attendant" && timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [currentTab, isAttendantLoggedIn]);
 
   // Handle Booking
   const handleBookToken = async (e: React.FormEvent) => {
@@ -325,10 +371,7 @@ export default function App() {
 
   // Handle Cancel Token
   const handleCancelToken = async (tokenId: string) => {
-    if (!confirm(lang === "am" ? "እርግጠኛ ነዎት ተራዎን መሰረዝ ይፈልጋሉ?" : "Are you sure you want to cancel your token?")) {
-      return;
-    }
-
+    setCancelError(null);
     try {
       const response = await fetch("/api/tokens/cancel", {
         method: "POST",
@@ -341,10 +384,11 @@ export default function App() {
         localStorage.removeItem("hawassa_fuel_active_token");
       } else {
         const data = await response.json();
-        alert(data.error || "Failed to cancel token");
+        setCancelError(data.error || "Failed to cancel token");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setCancelError(err.message || "Network error");
     }
   };
 
@@ -467,6 +511,7 @@ export default function App() {
 
   // Handle Attendant calling NEXT vehicle (Strict Audit Trail: Knows which attendant called which token)
   const handleNextVehicle = async (stationId: string) => {
+    setAttendantError(null);
     try {
       const response = await fetch("/api/stations/next", {
         method: "POST",
@@ -479,15 +524,17 @@ export default function App() {
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data.error || "Failed to advance queue");
+        setAttendantError(data.error || "Failed to advance queue");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setAttendantError(err.message || "Network error");
     }
   };
 
   // Handle Attendant changing Station Status
   const handleUpdateStationStatus = async (stationId: string, status: StationStatus) => {
+    setAttendantError(null);
     try {
       const response = await fetch("/api/stations/status", {
         method: "POST",
@@ -500,15 +547,17 @@ export default function App() {
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data.error || "Failed to update status");
+        setAttendantError(data.error || "Failed to update status");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setAttendantError(err.message || "Network error");
     }
   };
 
   // Handle Attendant changing daily allowed vehicle type restriction
   const handleUpdateAllowedVehicle = async (stationId: string, allowedVehicle: string) => {
+    setAttendantError(null);
     try {
       const response = await fetch("/api/stations/allowed-vehicle", {
         method: "POST",
@@ -521,10 +570,11 @@ export default function App() {
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data.error || "Failed to update allowed vehicle");
+        setAttendantError(data.error || "Failed to update allowed vehicle");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setAttendantError(err.message || "Network error");
     }
   };
 
@@ -595,6 +645,9 @@ export default function App() {
   };
 
   const vehiclesAhead = getVehiclesAheadCount();
+
+  // Check if driver has a truly active reservation (waiting or serving)
+  const hasActiveReservation = !!(activeToken && (activeToken.status === "waiting" || activeToken.status === "serving"));
 
   // Attendant details
   const attendantStation = stations.find((s) => s.id === attendantStationId);
@@ -908,14 +961,49 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Action buttons */}
-                        <div className="pt-4 flex justify-center">
-                          <button
-                            onClick={() => handleCancelToken(activeToken.id)}
-                            className="px-5 py-2.5 rounded-2xl border border-red-500/30 text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all text-xs font-bold"
-                          >
-                            {t.cancelToken}
-                          </button>
+                        {/* Action buttons with secure inline confirmation flow */}
+                        <div className="pt-4 flex flex-col items-center justify-center gap-3 w-full animate-fade-in">
+                          {cancelError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-center gap-2 justify-center w-full max-w-sm">
+                              <AlertCircle className="h-4 w-4 shrink-0" />
+                              <span>{cancelError}</span>
+                            </div>
+                          )}
+
+                          {!showCancelConfirm ? (
+                            <button
+                              onClick={() => {
+                                setCancelError(null);
+                                setShowCancelConfirm(true);
+                              }}
+                              className="px-5 py-2.5 rounded-2xl border border-red-500/30 text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all text-xs font-bold cursor-pointer"
+                            >
+                              {t.cancelToken}
+                            </button>
+                          ) : (
+                            <div className="bg-slate-950 p-4 rounded-2xl border border-red-500/20 max-w-sm w-full space-y-3">
+                              <p className="text-xs text-red-400 font-bold">
+                                {lang === "am" ? "በእርግጥ ተራዎን መሰረዝ ይፈልጋሉ?" : "Are you sure you want to cancel your token?"}
+                              </p>
+                              <div className="flex gap-2 justify-center">
+                                <button
+                                  onClick={async () => {
+                                    await handleCancelToken(activeToken.id);
+                                    setShowCancelConfirm(false);
+                                  }}
+                                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl cursor-pointer"
+                                >
+                                  {lang === "am" ? "አዎ፣ ሰርዝ" : "Yes, cancel"}
+                                </button>
+                                <button
+                                  onClick={() => setShowCancelConfirm(false)}
+                                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                                >
+                                  {lang === "am" ? "አይ፣ ተመለስ" : "No, cancel"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                       </div>
@@ -931,7 +1019,7 @@ export default function App() {
                         <h4 className="text-lg font-bold font-display">{t.bookToken}</h4>
                       </div>
 
-                      {activeToken && (
+                      {hasActiveReservation && (
                         <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 shrink-0" />
                           <span>
@@ -954,7 +1042,7 @@ export default function App() {
                             <select
                               value={plateCode}
                               onChange={(e) => setPlateCode(e.target.value)}
-                              disabled={!!activeToken || activeStation.status === "out_of_fuel"}
+                              disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
                               className="col-span-3 bg-slate-950 border border-slate-800 rounded-xl px-2 py-3 text-slate-100 focus:border-emerald-500/50 outline-none font-mono text-sm"
                             >
                               <option value="1">ኮድ 1</option>
@@ -968,7 +1056,7 @@ export default function App() {
                             <select
                               value={plateRegion}
                               onChange={(e) => setPlateRegion(e.target.value)}
-                              disabled={!!activeToken || activeStation.status === "out_of_fuel"}
+                              disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
                               className="col-span-3 bg-slate-950 border border-slate-800 rounded-xl px-2 py-3 text-slate-100 focus:border-emerald-500/50 outline-none font-mono text-sm"
                             >
                               <option value="HW">HW (ሃዋሳ)</option>
@@ -987,7 +1075,7 @@ export default function App() {
                               placeholder="e.g. 12543"
                               value={plateDigits}
                               onChange={(e) => setPlateDigits(e.target.value.replace(/\D/g, ""))}
-                              disabled={!!activeToken || activeStation.status === "out_of_fuel"}
+                              disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
                               className="col-span-6 bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-slate-100 placeholder-slate-600 focus:border-emerald-500/50 outline-none font-mono text-base tracking-widest text-center"
                               required
                             />
@@ -1012,7 +1100,7 @@ export default function App() {
                             {(["bajaj", "motorbike", "car", "minibus", "truck"] as VehicleType[]).map((type) => {
                               const isSelected = vehicleType === type;
                               const isRestrictedByStation = activeStation.currentAllowedVehicle && activeStation.currentAllowedVehicle !== "all" && activeStation.currentAllowedVehicle !== type;
-                              const isDisabled = !!activeToken || activeStation.status === "out_of_fuel" || isRestrictedByStation;
+                              const isDisabled = hasActiveReservation || activeStation.status === "out_of_fuel" || isRestrictedByStation;
 
                               let IconComponent = Car;
                               if (type === "motorbike") IconComponent = Bike;
@@ -1059,7 +1147,7 @@ export default function App() {
                               placeholder="0912345678"
                               value={phoneNumber}
                               onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                              disabled={!!activeToken || activeStation.status === "out_of_fuel"}
+                              disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-14 pr-4 text-slate-100 placeholder-slate-600 focus:border-emerald-500/50 outline-none font-mono text-sm"
                               required
                             />
@@ -1077,7 +1165,7 @@ export default function App() {
                         {/* Submit Button */}
                         <button
                           type="submit"
-                          disabled={!!activeToken || isBookingLoading || activeStation.status === "out_of_fuel"}
+                          disabled={hasActiveReservation || isBookingLoading || activeStation.status === "out_of_fuel"}
                           className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                         >
                           {isBookingLoading ? (
