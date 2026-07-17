@@ -1,0 +1,6 @@
+{
+  "name": "Hawassa Fuel Queue",
+  "description": "Digital Fuel Queue Management Web Application for Hawassa, Ethiopia. Book virtual queue tokens, track queue status in real-time, and notify drivers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
