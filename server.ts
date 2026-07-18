@@ -1,13 +1,8 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import crypto from "crypto";
 import { GasStation, QueueToken, SMSAlert, VehicleType, TokenStatus, StationStatus, UserRole } from "./src/types.js";
-
-// Setup path helpers for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Robust process-wide crash prevention
 process.on("uncaughtException", (err) => {
