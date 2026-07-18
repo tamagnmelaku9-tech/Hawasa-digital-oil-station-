@@ -436,8 +436,10 @@ export default function App() {
     setIsAttendantLoggedIn(false);
     setAttendantToken("");
     setAttendantUser(null);
+    setAttendantStationId(null);
     localStorage.removeItem("hawassa_fuel_attendant_token");
     localStorage.removeItem("hawassa_fuel_attendant_user");
+    localStorage.removeItem("hawassa_fuel_attendant_station_id");
   };
 
   // Handle Secure Password Change Flow with 3-Step Validation (የይለፍ ቃል መቀየሪያ)
@@ -1297,18 +1299,11 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Change Station selection */}
-                    <select
-                      value={attendantStationId || ""}
-                      onChange={(e) => handleAttendantStationChange(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-emerald-500/50"
-                    >
-                      {stations.map((st) => (
-                        <option key={st.id} value={st.id}>
-                          {lang === "am" ? st.nameAm : st.nameEn}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Locked Active Session badge */}
+                    <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5 font-sans">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{lang === "am" ? "የተቆለፈ የጥበቃ ክፍለ ጊዜ (Locked)" : "Locked Attendant Session"}</span>
+                    </div>
 
                     <button
                       onClick={handleAttendantLogout}

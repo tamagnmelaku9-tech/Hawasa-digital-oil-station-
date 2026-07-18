@@ -935,8 +935,14 @@ app.post("/api/tokens/cancel", (req, res) => {
 });
 
 // Advance queue (Next vehicle) - Called by Station Attendant
-app.post("/api/stations/next", (req, res) => {
+app.post("/api/stations/next", authenticateWorker, (req: any, res) => {
   const { stationId } = req.body;
+
+  // Ensure the logged in worker is associated with this station
+  if (req.user.stationId !== stationId) {
+    return res.status(403).json({ error: "ያልተፈቀደ እርምጃ! ይህንን ማደያ ማስተዳደር አይችሉም። (Unauthorized action! You cannot manage this station.)" });
+  }
+
   const station = stations.find((s) => s.id === stationId);
 
   if (!station) {
@@ -1030,8 +1036,14 @@ app.post("/api/stations/next", (req, res) => {
 });
 
 // Update station fuel or queue status
-app.post("/api/stations/status", (req, res) => {
+app.post("/api/stations/status", authenticateWorker, (req: any, res) => {
   const { stationId, status } = req.body;
+
+  // Ensure the logged in worker is associated with this station
+  if (req.user.stationId !== stationId) {
+    return res.status(403).json({ error: "ያልተፈቀደ እርምጃ! ይህንን ማደያ ማስተዳደር አይችሉም። (Unauthorized action! You cannot manage this station.)" });
+  }
+
   const station = stations.find((s) => s.id === stationId);
 
   if (!station) {
