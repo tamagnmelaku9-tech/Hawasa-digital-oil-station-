@@ -28,6 +28,8 @@ export interface GasStation {
   totalWaiting: number;
   updatedAt: string;
   currentAllowedVehicle: VehicleType | 'all'; // Station-controlled service days parameter
+  totalFuelLiters: number; // Configured total tank capacity/input
+  currentAvailableLiters: number; // Computed remaining unallocated fuel
 }
 
 export interface QueueToken {
@@ -43,6 +45,8 @@ export interface QueueToken {
   completedAt?: string;
   estimatedTime: number; // in minutes
   securityToken?: string; // Private driver access token
+  requestedLiters: number; // Fuel requested in liters
+  isLowFuelWarning?: boolean; // Flag if fuel might run out before their turn
 }
 
 export interface SMSAlert {

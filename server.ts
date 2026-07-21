@@ -154,7 +154,7 @@ const authenticateWorker = (req: any, res: any, next: any) => {
 };
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
@@ -172,7 +172,9 @@ let stations: GasStation[] = [
     lastNumber: 18,
     totalWaiting: 6,
     updatedAt: new Date().toISOString(),
-    currentAllowedVehicle: "all"
+    currentAllowedVehicle: "all",
+    totalFuelLiters: 10000,
+    currentAvailableLiters: 9655
   },
   {
     id: "station-2",
@@ -185,7 +187,9 @@ let stations: GasStation[] = [
     lastNumber: 7,
     totalWaiting: 2,
     updatedAt: new Date().toISOString(),
-    currentAllowedVehicle: "bajaj"
+    currentAllowedVehicle: "bajaj",
+    totalFuelLiters: 8000,
+    currentAvailableLiters: 7930
   },
   {
     id: "station-3",
@@ -198,7 +202,9 @@ let stations: GasStation[] = [
     lastNumber: 51,
     totalWaiting: 6,
     updatedAt: new Date().toISOString(),
-    currentAllowedVehicle: "motorbike"
+    currentAllowedVehicle: "all",
+    totalFuelLiters: 12000,
+    currentAvailableLiters: 11760
   },
   {
     id: "station-4",
@@ -211,20 +217,24 @@ let stations: GasStation[] = [
     lastNumber: 0,
     totalWaiting: 0,
     updatedAt: new Date().toISOString(),
-    currentAllowedVehicle: "all"
+    currentAllowedVehicle: "all",
+    totalFuelLiters: 0,
+    currentAvailableLiters: 0
   },
   {
     id: "station-5",
     nameAm: "የተባበሩት ማደያ (ታቦር)",
     nameEn: "Yetebaberut (Tabor)",
-    locationAm: "ታቦር ክፍለ ከተማ፣ ከቀበሌ 05 ፖሊስ ጣቢያ አጠገብ",
+    locationAm: "ታቦር ክፍለ ከተማ፣ ከቀቀሌ 05 ፖሊስ ጣቢያ አጠገብ",
     locationEn: "Tabor Sub-city, near Kebele 05 Police Station",
     status: "fast",
     currentNumber: 22,
     lastNumber: 25,
     totalWaiting: 3,
     updatedAt: new Date().toISOString(),
-    currentAllowedVehicle: "all"
+    currentAllowedVehicle: "all",
+    totalFuelLiters: 6000,
+    currentAvailableLiters: 5865
   }
 ];
 
@@ -240,40 +250,44 @@ let tokens: QueueToken[] = [
     status: "serving",
     createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
     servingAt: new Date(Date.now() - 2 * 60000).toISOString(),
-    estimatedTime: 0
+    estimatedTime: 0,
+    requestedLiters: 45
   },
   {
     id: "t-1-13",
     stationId: "station-1",
     tokenNumber: 13,
-    plateNumber: "ኮድ 1 - HW 02451",
+    plateNumber: "ኮድ 1 - SD 02451",
     vehicleType: "bajaj",
     phoneNumber: "0911223344",
     status: "waiting",
     createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    estimatedTime: 2
+    estimatedTime: 2,
+    requestedLiters: 15
   },
   {
     id: "t-1-14",
     stationId: "station-1",
     tokenNumber: 14,
-    plateNumber: "ኮድ 3 - HW 12543",
+    plateNumber: "ኮድ 3 - SD 12543",
     vehicleType: "minibus",
     phoneNumber: "0922334455",
     status: "waiting",
     createdAt: new Date(Date.now() - 12 * 60000).toISOString(),
-    estimatedTime: 4
+    estimatedTime: 4,
+    requestedLiters: 60
   },
   {
     id: "t-1-15",
     stationId: "station-1",
     tokenNumber: 15,
-    plateNumber: "ኮድ 1 - HW 08922",
+    plateNumber: "ኮድ 1 - SD 08922",
     vehicleType: "bajaj",
     phoneNumber: "0933445566",
     status: "waiting",
     createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-    estimatedTime: 9
+    estimatedTime: 9,
+    requestedLiters: 15
   },
   {
     id: "t-1-16",
@@ -284,18 +298,20 @@ let tokens: QueueToken[] = [
     phoneNumber: "0944556677",
     status: "waiting",
     createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
-    estimatedTime: 11
+    estimatedTime: 11,
+    requestedLiters: 45
   },
   {
     id: "t-1-17",
     stationId: "station-1",
     tokenNumber: 17,
-    plateNumber: "ኮድ 1 - HW 01124",
+    plateNumber: "ኮድ 1 - SD 01124",
     vehicleType: "bajaj",
     phoneNumber: "0955667788",
     status: "waiting",
     createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    estimatedTime: 15
+    estimatedTime: 15,
+    requestedLiters: 15
   },
   {
     id: "t-1-18",
@@ -306,7 +322,8 @@ let tokens: QueueToken[] = [
     phoneNumber: "0966778899",
     status: "waiting",
     createdAt: new Date(Date.now() - 2 * 60000).toISOString(),
-    estimatedTime: 17
+    estimatedTime: 17,
+    requestedLiters: 150
   },
 
   // Station 2 Seeding (Current: 5, Last: 7, Total waiting: 2)
@@ -314,13 +331,14 @@ let tokens: QueueToken[] = [
     id: "t-2-5",
     stationId: "station-2",
     tokenNumber: 5,
-    plateNumber: "ኮድ 1 - HW 03322",
+    plateNumber: "ኮድ 1 - SD 03322",
     vehicleType: "bajaj",
     phoneNumber: "0977889900",
     status: "serving",
     createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
     servingAt: new Date(Date.now() - 1 * 60000).toISOString(),
-    estimatedTime: 0
+    estimatedTime: 0,
+    requestedLiters: 15
   },
   {
     id: "t-2-6",
@@ -331,18 +349,20 @@ let tokens: QueueToken[] = [
     phoneNumber: "0988990011",
     status: "waiting",
     createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    estimatedTime: 4
+    estimatedTime: 4,
+    requestedLiters: 40
   },
   {
     id: "t-2-7",
     stationId: "station-2",
     tokenNumber: 7,
-    plateNumber: "ኮድ 1 - HW 05678",
+    plateNumber: "ኮድ 1 - SD 05678",
     vehicleType: "bajaj",
     phoneNumber: "0999001122",
     status: "waiting",
     createdAt: new Date(Date.now() - 1 * 60000).toISOString(),
-    estimatedTime: 8
+    estimatedTime: 8,
+    requestedLiters: 15
   },
 
   // Station 3 Seeding (Current: 45, Last: 51, Total waiting: 6)
@@ -356,29 +376,32 @@ let tokens: QueueToken[] = [
     status: "serving",
     createdAt: new Date(Date.now() - 30 * 60000).toISOString(),
     servingAt: new Date(Date.now() - 3 * 60000).toISOString(),
-    estimatedTime: 0
+    estimatedTime: 0,
+    requestedLiters: 45
   },
   {
     id: "t-3-46",
     stationId: "station-3",
     tokenNumber: 46,
-    plateNumber: "ኮድ 1 - HW 12121",
+    plateNumber: "ኮድ 1 - SD 12121",
     vehicleType: "bajaj",
     phoneNumber: "0912121212",
     status: "waiting",
     createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
-    estimatedTime: 2
+    estimatedTime: 2,
+    requestedLiters: 15
   },
   {
     id: "t-3-47",
     stationId: "station-3",
     tokenNumber: 47,
-    plateNumber: "ኮድ 3 - HW 72611",
+    plateNumber: "ኮድ 3 - SD 72611",
     vehicleType: "minibus",
     phoneNumber: "0923232323",
     status: "waiting",
     createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
-    estimatedTime: 4
+    estimatedTime: 4,
+    requestedLiters: 60
   },
   {
     id: "t-3-48",
@@ -389,18 +412,20 @@ let tokens: QueueToken[] = [
     phoneNumber: "0934343434",
     status: "waiting",
     createdAt: new Date(Date.now() - 18 * 60000).toISOString(),
-    estimatedTime: 9
+    estimatedTime: 9,
+    requestedLiters: 45
   },
   {
     id: "t-3-49",
     stationId: "station-3",
     tokenNumber: 49,
-    plateNumber: "ኮድ 1 - HW 99911",
+    plateNumber: "ኮድ 1 - SD 99911",
     vehicleType: "bajaj",
     phoneNumber: "0945454545",
     status: "waiting",
     createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    estimatedTime: 13
+    estimatedTime: 13,
+    requestedLiters: 15
   },
   {
     id: "t-3-50",
@@ -411,18 +436,20 @@ let tokens: QueueToken[] = [
     phoneNumber: "0956565656",
     status: "waiting",
     createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-    estimatedTime: 15
+    estimatedTime: 15,
+    requestedLiters: 45
   },
   {
     id: "t-3-51",
     stationId: "station-3",
     tokenNumber: 51,
-    plateNumber: "ኮድ 1 - HW 78901",
+    plateNumber: "ኮድ 1 - SD 78901",
     vehicleType: "bajaj",
     phoneNumber: "0967676767",
     status: "waiting",
     createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    estimatedTime: 19
+    estimatedTime: 19,
+    requestedLiters: 15
   },
 
   // Station 5 Seeding (Current: 22, Last: 25, Total waiting: 3)
@@ -430,24 +457,26 @@ let tokens: QueueToken[] = [
     id: "t-5-22",
     stationId: "station-5",
     tokenNumber: 22,
-    plateNumber: "ኮድ 3 - HW 00912",
+    plateNumber: "ኮድ 3 - SD 00912",
     vehicleType: "minibus",
     phoneNumber: "0978787878",
     status: "serving",
     createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
     servingAt: new Date(Date.now() - 2 * 60000).toISOString(),
-    estimatedTime: 0
+    estimatedTime: 0,
+    requestedLiters: 60
   },
   {
     id: "t-5-23",
     stationId: "station-5",
     tokenNumber: 23,
-    plateNumber: "ኮድ 1 - HW 02441",
+    plateNumber: "ኮድ 1 - SD 02441",
     vehicleType: "bajaj",
     phoneNumber: "0989898989",
     status: "waiting",
     createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-    estimatedTime: 2
+    estimatedTime: 2,
+    requestedLiters: 15
   },
   {
     id: "t-5-24",
@@ -458,18 +487,20 @@ let tokens: QueueToken[] = [
     phoneNumber: "0990909090",
     status: "waiting",
     createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    estimatedTime: 4
+    estimatedTime: 4,
+    requestedLiters: 45
   },
   {
     id: "t-5-25",
     stationId: "station-5",
     tokenNumber: 25,
-    plateNumber: "ኮድ 1 - HW 05511",
+    plateNumber: "ኮድ 1 - SD 05511",
     vehicleType: "bajaj",
     phoneNumber: "0901010101",
     status: "waiting",
     createdAt: new Date(Date.now() - 2 * 60000).toISOString(),
-    estimatedTime: 8
+    estimatedTime: 8,
+    requestedLiters: 15
   }
 ];
 
@@ -477,10 +508,10 @@ let smsLogs: SMSAlert[] = [
   {
     id: "sms-init-1",
     phoneNumber: "0911223344",
-    message: "[SIMULATED SMS - በንዚል መዲያ] ውድ አሽከርካሪ፣ የሰሌዳ ቁጥር ኮድ 1 - HW 02451 ለበንዚል መዲያ (ሀዋሳ ማዕከል) ማደያ ተራ ቁጥር 13 በስኬት ተይዞልዎታል። የቀረው ጊዜ ግምት፡ 2 ደቂቃ።",
+    message: "[SIMULATED SMS - በንዚል መዲያ] ውድ አሽከርካሪ፣ የሰሌዳ ቁጥር ኮድ 1 - SD 02451 ለበንዚል መዲያ (ሀዋሳ ማዕከል) ማደያ ተራ ቁጥር 13 በስኬት ተይዞልዎታል። የቀረው ጊዜ ግምት፡ 2 ደቂቃ።",
     timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
     tokenNumber: 13,
-    plateNumber: "ኮድ 1 - HW 02451"
+    plateNumber: "ኮድ 1 - SD 02451"
   },
   {
     id: "sms-init-2",
@@ -488,7 +519,7 @@ let smsLogs: SMSAlert[] = [
     message: "[SIMULATED SMS - በንዚል መዲያ] ተራዎ ሊደርስ 5 መኪና ብቻ ቀርቷል! እባክዎ በአስቸኳይ ወደ በንዚል መዲያ (ሀዋሳ ማዕከል) ማደያ ይምጡ።",
     timestamp: new Date(Date.now() - 12 * 60000).toISOString(),
     tokenNumber: 13,
-    plateNumber: "ኮድ 1 - HW 02451"
+    plateNumber: "ኮድ 1 - SD 02451"
   }
 ];
 
@@ -504,6 +535,9 @@ function broadcastEvent(type: string, data: any) {
     try {
       if (client.res && !client.res.destroyed && !client.res.writableEnded) {
         client.res.write(`data: ${payload}\n\n`);
+        if (typeof client.res.flush === "function") {
+          client.res.flush();
+        }
         activeClients.push(client);
       }
     } catch (err) {
@@ -544,13 +578,59 @@ function recalculateETAs(stationId: string) {
   });
 }
 
+// Calculate remaining fuel and handle auto out-of-fuel transition
+function recalculateStationFuel(stationId: string) {
+  const station = stations.find((s) => s.id === stationId);
+  if (!station) return;
+
+  const activeTokens = tokens.filter(
+    (t) => t.stationId === stationId && (t.status === "waiting" || t.status === "serving")
+  );
+  const sumRequested = activeTokens.reduce((sum, t) => sum + (t.requestedLiters || 0), 0);
+  station.currentAvailableLiters = Math.max(0, station.totalFuelLiters - sumRequested);
+
+  if (station.totalFuelLiters > 0 && station.currentAvailableLiters <= 0) {
+    station.status = "out_of_fuel";
+    // Auto-cancel waiting tokens (excluding serving)
+    tokens.forEach((t) => {
+      if (t.stationId === stationId && t.status === "waiting") {
+        t.status = "canceled";
+        t.completedAt = new Date().toISOString();
+        
+        const cancelSms: SMSAlert = {
+          id: `sms-out-${Date.now()}-${t.id}`,
+          phoneNumber: t.phoneNumber,
+          message: `[SIMULATED SMS - ${station.nameEn}] ማደያው ላይ ነዳጅ ማለቁን ተከትሎ ተራዎ ተሰርዟል። ስለተፈጠረው ሁኔታ እናዝናለን። (Your token was canceled as the station has run out of fuel.)`,
+          timestamp: new Date().toISOString(),
+          tokenNumber: t.tokenNumber,
+          plateNumber: t.plateNumber,
+        };
+        smsLogs.push(cancelSms);
+      }
+    });
+    station.totalWaiting = 0;
+  }
+}
+
 // Run initial ETA calculation and security token assignment for private communications
 tokens.forEach((t) => {
   if (!t.securityToken) {
     t.securityToken = `drv-${t.id}-${crypto.randomBytes(4).toString("hex")}`;
   }
+  if (t.requestedLiters === undefined) {
+    t.requestedLiters = (
+      t.vehicleType === "bajaj" ? 15 :
+      t.vehicleType === "motorbike" ? 10 :
+      t.vehicleType === "car" ? 45 :
+      t.vehicleType === "minibus" ? 60 :
+      t.vehicleType === "truck" ? 150 : 20
+    );
+  }
 });
-stations.forEach((s) => recalculateETAs(s.id));
+stations.forEach((s) => {
+  recalculateETAs(s.id);
+  recalculateStationFuel(s.id);
+});
 
 // REST APIs
 // --- AUTHENTICATION & SECURITY ENDPOINTS ---
@@ -751,20 +831,38 @@ app.get("/api/tokens", (req, res) => {
 
 // SSE Event Stream Endpoint
 app.get("/api/events", (req, res) => {
+  const anyRes = res as any;
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
+    "Cache-Control": "no-cache, no-transform",
     "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
   });
+  if (typeof anyRes.flushHeaders === "function") {
+    anyRes.flushHeaders();
+  }
 
   const clientId = Date.now().toString();
   clients.push({ id: clientId, res });
+
+  // Send a connection established event immediately
+  try {
+    res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
+    if (typeof anyRes.flush === "function") {
+      anyRes.flush();
+    }
+  } catch (err) {
+    console.error("Error writing initial SSE connect message:", err);
+  }
 
   // Keep-alive ping
   const intervalId = setInterval(() => {
     try {
       if (!res.destroyed && !res.writableEnded) {
         res.write(`data: ${JSON.stringify({ type: "ping" })}\n\n`);
+        if (typeof anyRes.flush === "function") {
+          anyRes.flush();
+        }
       } else {
         clearInterval(intervalId);
       }
@@ -783,14 +881,19 @@ app.get("/api/events", (req, res) => {
 // Book virtual queue token
 app.post("/api/tokens/book", (req, res) => {
   const { stationId, plateNumber, vehicleType, phoneNumber } = req.body;
+  const requestedLiters = Number(req.body.requestedLiters);
 
   if (!stationId || !plateNumber || !vehicleType || !phoneNumber) {
-    return res.status(400).json({ error: "Missing required fields" });
+    return res.status(400).json({ error: "አስፈላጊ መረጃዎች አልተሟሉም! (Missing required fields.)" });
+  }
+
+  if (!requestedLiters || isNaN(requestedLiters) || requestedLiters <= 0) {
+    return res.status(400).json({ error: "እባክዎ ትክክለኛ የነዳጅ መጠን በሊትር ያስገቡ! (Please enter a valid requested fuel amount in Liters!)" });
   }
 
   const station = stations.find((s) => s.id === stationId);
   if (!station) {
-    return res.status(404).json({ error: "Gas station not found" });
+    return res.status(404).json({ error: "ማደያው አልተገኘም! (Gas station not found.)" });
   }
 
   // Dynamic Station-Controlled Service Day validation
@@ -823,8 +926,25 @@ app.post("/api/tokens/book", (req, res) => {
     });
   }
 
-  if (station.status === "out_of_fuel") {
-    return res.status(400).json({ error: "Station is out of fuel" });
+  // 1. Math check for available liquid fuel
+  const activeTokens = tokens.filter(
+    (t) => t.stationId === stationId && (t.status === "waiting" || t.status === "serving")
+  );
+  const sumRequested = activeTokens.reduce((sum, t) => sum + (t.requestedLiters || 0), 0);
+  const currentAvailableLiters = Math.max(0, station.totalFuelLiters - sumRequested);
+
+  if (station.status === "out_of_fuel" || (station.totalFuelLiters > 0 && currentAvailableLiters <= 0)) {
+    station.status = "out_of_fuel";
+    broadcastEvent("stations", stations);
+    return res.status(400).json({ 
+      error: "ማደያው ላይ ያለው ነዳጅ ሙሉ በሙሉ አልቋል! አዲስ ተራ መያዝ አይቻልም። (This station is completely out of fuel! Booking is locked.)" 
+    });
+  }
+
+  // Warning math check: will fuel run out before their turn?
+  let isLowFuelWarning = false;
+  if (currentAvailableLiters < requestedLiters) {
+    isLowFuelWarning = true;
   }
 
   // Prevent plate number cheating (check if this plate already has an active token at this station)
@@ -857,17 +977,23 @@ app.post("/api/tokens/book", (req, res) => {
     status: "waiting",
     createdAt: new Date().toISOString(),
     estimatedTime: 0,
-    securityToken
+    securityToken,
+    requestedLiters,
+    isLowFuelWarning
   };
 
   tokens.push(newToken);
   recalculateETAs(stationId);
+  recalculateStationFuel(stationId); // Update fuel levels
 
   // Find the created token's ETA
   const updatedToken = tokens.find((t) => t.id === newToken.id)!;
 
   // Create simulated welcome SMS
-  const smsMessage = `[SIMULATED SMS - ${station.nameEn}] Dear Driver, Plate ${updatedToken.plateNumber} successfully booked Token #${updatedToken.tokenNumber} at ${station.nameEn}. Estimated wait: ${updatedToken.estimatedTime} min.`;
+  let smsMessage = `[SIMULATED SMS - ${station.nameEn}] Dear Driver, Plate ${updatedToken.plateNumber} successfully booked Token #${updatedToken.tokenNumber} at ${station.nameEn}. Estimated wait: ${updatedToken.estimatedTime} min.`;
+  if (isLowFuelWarning) {
+    smsMessage += ` WARNING: Fuel might run out before your turn! (ማስጠንቀቂያ፡ የእርስዎ ተራ ከመድረሱ በፊት ነዳጅ ሊያልቅ ስለሚችል መስተናገድዎ አጠራጣሪ ነው።)`;
+  }
   const sms: SMSAlert = {
     id: `sms-${Date.now()}`,
     phoneNumber,
@@ -909,6 +1035,7 @@ app.post("/api/tokens/cancel", (req, res) => {
   }
 
   recalculateETAs(token.stationId);
+  recalculateStationFuel(token.stationId); // Free back the reserved capacity
 
   // Simulated SMS for cancellation
   const smsMessage = `[SIMULATED SMS - ${station.nameEn}] Token #${token.tokenNumber} has been canceled.`;
@@ -950,6 +1077,9 @@ app.post("/api/stations/next", authenticateWorker, (req: any, res) => {
     currentServing.status = "completed";
     currentServing.completedAt = new Date().toISOString();
     
+    // Refueling complete: subtract physical liquid fuel consumed from tank
+    station.totalFuelLiters = Math.max(0, station.totalFuelLiters - (currentServing.requestedLiters || 0));
+
     // Add completion SMS
     const completionSms: SMSAlert = {
       id: `sms-comp-${Date.now()}`,
@@ -984,6 +1114,7 @@ app.post("/api/stations/next", authenticateWorker, (req: any, res) => {
 
   station.updatedAt = new Date().toISOString();
   recalculateETAs(stationId);
+  recalculateStationFuel(stationId); // Update fuel levels and trigger out_of_fuel check
 
   // 3. Trigger simulated SMS warnings for the 5th driver in line (or closer)
   // Let's check remaining waiting drivers in queue
@@ -1032,7 +1163,7 @@ app.post("/api/stations/next", authenticateWorker, (req: any, res) => {
 
 // Update station fuel or queue status
 app.post("/api/stations/status", authenticateWorker, (req: any, res) => {
-  const { stationId, status } = req.body;
+  const { stationId, status, totalFuelLiters } = req.body;
 
   // Ensure the logged in worker is associated with this station
   if (req.user.stationId !== stationId) {
@@ -1045,11 +1176,16 @@ app.post("/api/stations/status", authenticateWorker, (req: any, res) => {
     return res.status(404).json({ error: "Station not found" });
   }
 
+  if (totalFuelLiters !== undefined) {
+    station.totalFuelLiters = Math.max(0, Number(totalFuelLiters));
+  }
+
   if (status) {
     station.status = status as StationStatus;
     
-    // If out of fuel, cancel all waiting tokens automatically to free drivers
+    // If manually set to out_of_fuel, empty the tank to 0
     if (status === "out_of_fuel") {
+      station.totalFuelLiters = 0;
       tokens.forEach((t) => {
         if (t.stationId === stationId && (t.status === "waiting" || t.status === "serving")) {
           t.status = "canceled";
@@ -1070,10 +1206,12 @@ app.post("/api/stations/status", authenticateWorker, (req: any, res) => {
       station.totalWaiting = 0;
       station.currentNumber = 0;
     }
-    
-    station.updatedAt = new Date().toISOString();
-    recalculateETAs(stationId);
   }
+
+  // Recalculate remaining fuel allocations and update status if depleted
+  recalculateStationFuel(stationId);
+  station.updatedAt = new Date().toISOString();
+  recalculateETAs(stationId);
 
   broadcastEvent("stations", stations);
   broadcastEvent("tokens", tokens);

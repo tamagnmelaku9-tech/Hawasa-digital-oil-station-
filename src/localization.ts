@@ -91,6 +91,15 @@ export const localization = {
 
     // SMS Notifications Simulation
     smsNotificationTitle: "የኤስኤምኤስ መልዕክቶች (በእውነተኛ ጊዜ)",
+    fuelInventoryInput: "ጠቅላላ ያለ ነዳጅ (በሊትር)",
+    requestedLitersInput: "የሚፈልጉት የነዳጅ መጠን (በሊትር)",
+    remainingFuel: "ቀሪ የፈሳሽ ነዳጅ መጠን",
+    allocatedFuel: "የተያዘ (የተሸጠ) ነዳጅ መጠን",
+    fuelDepletionProgress: "የማደያው ክምችት መቶኛ",
+    lowFuelWarning: "ማስጠንቀቂያ፡ የእርስዎ ተራ ከመድረሱ በፊት ነዳጅ ሊያልቅ ስለሚችል መስተናገድዎ አጠራጣሪ ነው። (WARNING: Fuel might run out before your turn!)",
+    litersShort: "ሊትር",
+    updateInventoryBtn: "የነዳጅ ክምችት ያዘምኑ",
+    fuelInventoryStatus: "የማደያው የነዳጅ ክምችት ሁኔታ",
     noSmsSent: "እስካሁን የተላከ የኤስኤምኤስ መልዕክት የለም። ተራ ሲይዙ ወይም ተራዎ ሲቃረብ እዚህ መልዕክት ይደርስዎታል።",
     smsTemplateWelcome: "ውድ አሽከርካሪ፣ የሰሌዳ ቁጥር {plate} ለ{station} ማደያ ተራ ቁጥር {number} በስኬት ተይዞልዎታል። የቀረው ጊዜ ግምት፡ {eta} ደቂቃ።",
     smsTemplateAlert: "ተራዎ ሊደርስ {count} መኪና ብቻ ቀርቷል! እባክዎ በአስቸኳይ ወደ {station} ማደያ ይምጡ።",
@@ -206,6 +215,15 @@ export const localization = {
 
     // SMS Notifications Simulation
     smsNotificationTitle: "SMS Notifications Log (Real-time)",
+    fuelInventoryInput: "Total Available Fuel (Liters)",
+    requestedLitersInput: "Requested Fuel Amount (Liters)",
+    remainingFuel: "Remaining Liquid Fuel",
+    allocatedFuel: "Allocated (Reserved) Fuel",
+    fuelDepletionProgress: "Fuel Depletion Level",
+    lowFuelWarning: "WARNING: Fuel might run out before your turn based on demand ahead of you.",
+    litersShort: "Liters",
+    updateInventoryBtn: "Update Fuel Inventory",
+    fuelInventoryStatus: "Station Fuel Inventory Status",
     noSmsSent: "No SMS alerts sent yet. When you book a token or your turn gets closer, simulated alerts will appear here.",
     smsTemplateWelcome: "Dear Driver, Plate {plate} successfully booked Token #{number} at {station}. Estimated wait: {eta} min.",
     smsTemplateAlert: "Only {count} vehicles left before your turn! Please drive immediately to {station} station.",

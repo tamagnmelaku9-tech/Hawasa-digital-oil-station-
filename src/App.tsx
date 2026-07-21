@@ -47,16 +47,18 @@ export default function App() {
 
   // Booking Form State
   const [plateCode, setPlateCode] = useState<string>("3");
-  const [plateRegion, setPlateRegion] = useState<string>("HW"); // HW for Hawassa, AA for Addis Ababa, ET for Ethiopia, etc.
+  const [plateRegion, setPlateRegion] = useState<string>("SD"); // SD for Sidama, AA for Addis Ababa, ET for Ethiopia, etc.
   const [plateDigits, setPlateDigits] = useState<string>("");
   const [vehicleType, setVehicleType] = useState<VehicleType>("bajaj");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [requestedLiters, setRequestedLiters] = useState<string>("20");
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
 
   // Attendant & Security states
   const [attendantUsername, setAttendantUsername] = useState<string>("");
   const [attendantPassword, setAttendantPassword] = useState<string>("");
+  const [customFuelLiters, setCustomFuelLiters] = useState<string>("");
   const [attendantToken, setAttendantToken] = useState<string>(() => {
     return localStorage.getItem("hawassa_fuel_attendant_token") || "";
   });
@@ -169,6 +171,39 @@ export default function App() {
 
     connectSSE();
 
+    // High-frequency polling fallback (every 2.5 seconds) to ensure absolute multi-device synchronization
+    const pollInterval = setInterval(async () => {
+      try {
+        const resStations = await fetch("/api/stations");
+        if (resStations.ok) {
+          const dataStations = await resStations.ok ? await resStations.json() : null;
+          if (dataStations) {
+            setStations((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dataStations)) {
+                return dataStations;
+              }
+              return prev;
+            });
+          }
+        }
+
+        const resTokens = await fetch("/api/tokens");
+        if (resTokens.ok) {
+          const dataTokens = await resTokens.ok ? await resTokens.json() : null;
+          if (dataTokens) {
+            setTokens((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dataTokens)) {
+                return dataTokens;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Polling fallback failed:", err);
+      }
+    }, 2500);
+
     return () => {
       if (eventSource) {
         eventSource.close();
@@ -176,6 +211,7 @@ export default function App() {
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
       }
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -329,6 +365,12 @@ export default function App() {
       return;
     }
 
+    const litersNum = Number(requestedLiters);
+    if (!litersNum || isNaN(litersNum) || litersNum <= 0) {
+      setBookingError(lang === "am" ? "እባክዎ ትክክለኛ የነዳጅ መጠን በሊትር ያስገቡ!" : "Please enter a valid requested fuel amount in Liters!");
+      return;
+    }
+
     if (!selectedStationId) {
       setBookingError(t.selectStation);
       return;
@@ -346,6 +388,7 @@ export default function App() {
           plateNumber: formattedPlate,
           vehicleType,
           phoneNumber: phoneNumber.trim(),
+          requestedLiters: litersNum
         }),
       });
 
@@ -550,6 +593,31 @@ export default function App() {
       if (!response.ok) {
         const data = await response.json();
         setAttendantError(data.error || "Failed to update status");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAttendantError(err.message || "Network error");
+    }
+  };
+
+  // Handle Attendant updating Fuel Inventory
+  const handleUpdateFuelInventory = async (stationId: string, liters: number) => {
+    setAttendantError(null);
+    try {
+      const response = await fetch("/api/stations/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${attendantToken}`
+        },
+        body: JSON.stringify({ stationId, totalFuelLiters: liters }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setAttendantError(data.error || "Failed to update fuel inventory");
+      } else {
+        setCustomFuelLiters("");
       }
     } catch (err: any) {
       console.error(err);
@@ -960,6 +1028,14 @@ export default function App() {
                               </div>
                             )}
 
+                            {/* Low Fuel Capacity Warning Banner */}
+                            {activeToken.isLowFuelWarning && (
+                              <div className="p-3.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold rounded-2xl flex items-center gap-2.5 text-left justify-center animate-pulse">
+                                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                                <span>{t.lowFuelWarning}</span>
+                              </div>
+                            )}
+
                           </div>
                         )}
 
@@ -1061,7 +1137,7 @@ export default function App() {
                               disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
                               className="col-span-3 bg-slate-950 border border-slate-800 rounded-xl px-2 py-3 text-slate-100 focus:border-emerald-500/50 outline-none font-mono text-sm"
                             >
-                              <option value="HW">HW (ሃዋሳ)</option>
+                              <option value="SD">SD (ሲዳማ)</option>
                               <option value="AA">AA (አዲስ አበባ)</option>
                               <option value="ET">ET (ኢትዮጵያ)</option>
                               <option value="OR">OR (ኦሮሚያ)</option>
@@ -1153,6 +1229,55 @@ export default function App() {
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-14 pr-4 text-slate-100 placeholder-slate-600 focus:border-emerald-500/50 outline-none font-mono text-sm"
                               required
                             />
+                          </div>
+                        </div>
+
+                        {/* Fuel Volume input (የሚፈልጉት የነዳጅ መጠን) */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                              {t.requestedLitersInput} *
+                            </label>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              {lang === "am" ? "ማደያው ላይ ያለው ነዳጅ፡" : "Station fuel left:"} {activeStation.currentAvailableLiters?.toLocaleString() || 0} L
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                              <Fuel className="h-4 w-4 text-emerald-500/80" />
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000}
+                              placeholder="20"
+                              value={requestedLiters}
+                              onChange={(e) => setRequestedLiters(e.target.value)}
+                              disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-14 text-slate-100 placeholder-slate-600 focus:border-emerald-500/50 outline-none font-mono text-sm"
+                              required
+                            />
+                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">
+                              {t.litersShort}
+                            </span>
+                          </div>
+                          {/* Presets */}
+                          <div className="flex gap-1.5 flex-wrap">
+                            {[15, 30, 45, 60, 100].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setRequestedLiters(String(preset))}
+                                disabled={hasActiveReservation || activeStation.status === "out_of_fuel"}
+                                className={`text-[10px] font-mono px-2.5 py-1 rounded-lg border cursor-pointer transition-all ${
+                                  requestedLiters === String(preset)
+                                    ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-400 font-bold"
+                                    : "bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
+                                }`}
+                              >
+                                {preset}L
+                              </button>
+                            ))}
                           </div>
                         </div>
 
@@ -1452,6 +1577,168 @@ export default function App() {
                   </div>
 
                 </div>
+
+                {/* NEW COMPONENT: LIVE FUEL INVENTORY & DRIVER FORECASTING */}
+                {attendantStation && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-lg space-y-6">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-emerald-400">
+                        {t.fuelInventoryStatus}
+                      </span>
+                      <h4 className="text-lg font-bold font-display mt-1">
+                        {lang === "am" ? "የማደያው ክምችት መቆጣጠሪያ" : "Live Fuel Inventory & Forecasting"}
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      
+                      {/* Left Side: Attendant input controls */}
+                      <div className="space-y-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            {t.fuelInventoryInput} ({t.litersShort})
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                              <Fuel className="h-4 w-4 text-emerald-500/80" />
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder={String(attendantStation.totalFuelLiters || 5000)}
+                              value={customFuelLiters}
+                              onChange={(e) => setCustomFuelLiters(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-slate-100 placeholder-slate-600 focus:border-emerald-500/50 outline-none font-mono text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Presets and submission */}
+                        <div className="flex flex-wrap gap-2">
+                          {[2500, 5000, 10000].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                setCustomFuelLiters(String(preset));
+                                handleUpdateFuelInventory(attendantStationId!, preset);
+                              }}
+                              className="text-[10px] font-mono px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer transition-all"
+                            >
+                              Set {preset.toLocaleString()}L
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const extra = (attendantStation.totalFuelLiters || 0) + 1000;
+                              setCustomFuelLiters(String(extra));
+                              handleUpdateFuelInventory(attendantStationId!, extra);
+                            }}
+                            className="text-[10px] font-mono px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer transition-all"
+                          >
+                            +1,000L
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateFuelInventory(attendantStationId!, Number(customFuelLiters || attendantStation.totalFuelLiters))}
+                          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer uppercase tracking-wider"
+                        >
+                          {t.updateInventoryBtn}
+                        </button>
+                      </div>
+
+                      {/* Right Side: Fuel depletion progress bar & dynamic indicators */}
+                      <div className="space-y-5 flex flex-col justify-between">
+                        
+                        {/* Live statistics breakdown */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-slate-850">
+                            <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-500">
+                              {t.allocatedFuel}
+                            </span>
+                            <div className="text-xl font-bold font-mono text-amber-500 mt-1">
+                              {Math.max(0, attendantStation.totalFuelLiters - attendantStation.currentAvailableLiters).toLocaleString()} L
+                            </div>
+                            <span className="text-[9px] text-slate-600 font-medium">
+                              {lang === "am" ? "በንቁ ሰልፈኞች የተጠየቀ" : "Sum of requested spots"}
+                            </span>
+                          </div>
+
+                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-slate-850">
+                            <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-500">
+                              {t.remainingFuel}
+                            </span>
+                            <div className={`text-xl font-bold font-mono mt-1 ${attendantStation.currentAvailableLiters <= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                              {attendantStation.currentAvailableLiters.toLocaleString()} L
+                            </div>
+                            <span className="text-[9px] text-slate-600 font-medium">
+                              {lang === "am" ? "ሳይሸጥ የቀረው ነዳጅ" : "Unallocated liquid fuel"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Gorgeous Depletion Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center text-xs font-semibold text-slate-400 font-mono">
+                            <span>{t.fuelDepletionProgress}</span>
+                            <span>
+                              {attendantStation.totalFuelLiters > 0 
+                                ? Math.round((attendantStation.currentAvailableLiters / attendantStation.totalFuelLiters) * 100)
+                                : 0}%
+                            </span>
+                          </div>
+                          <div className="h-4 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                                (attendantStation.currentAvailableLiters / (attendantStation.totalFuelLiters || 1)) <= 0.25
+                                  ? 'bg-gradient-to-r from-red-500 to-red-400'
+                                  : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                              }`}
+                              style={{ 
+                                width: `${attendantStation.totalFuelLiters > 0 ? (attendantStation.currentAvailableLiters / attendantStation.totalFuelLiters) * 100 : 0}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Forecast Alert Block */}
+                        {attendantStation.currentAvailableLiters <= 0 ? (
+                          <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-center gap-2">
+                            <XCircle className="h-4 w-4 shrink-0 text-red-400" />
+                            <span>
+                              {lang === "am" 
+                                ? "የተያዘው የነዳጅ መጠን ካለው ክምችት አልፏል! አዳዲስ ተራ መያዣዎች በራስ-ሰር ተዘግተዋል።" 
+                                : "Allocated queue fuel exceeds tank! New driver bookings are locked."}
+                            </span>
+                          </div>
+                        ) : (attendantStation.currentAvailableLiters / (attendantStation.totalFuelLiters || 1)) <= 0.25 ? (
+                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs rounded-xl flex items-center gap-2 animate-pulse">
+                            <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
+                            <span>
+                              {lang === "am"
+                                ? "ማስጠንቀቂያ፡ የነዳጅ ክምችቱ ከ25% በታች ደርሷል፤ ተስተናጋጆችን ይቆጣጠሩ።"
+                                : "Warning: Fuel capacity level is below 25%! Monitor vehicle count carefully."}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/80 text-xs rounded-xl flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                            <span>
+                              {lang === "am"
+                                ? "የነዳጅ መጠን አስተማማኝ ደረጃ ላይ ነው፤ ቀጣይ ተሽከርካሪዎችን በቅደም ተከተል ያስተናግዱ።"
+                                : "Fuel inventory level is safe. Continue calling waiting drivers."}
+                            </span>
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>
+                  </div>
+                )}
 
                 {/* Queue listings table for the current station */}
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-lg">
